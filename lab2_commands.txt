@@ -1,0 +1,423 @@
+chmod 400 private/root.key.pem
+chmod 400 ca1/private/ca1.key.pem
+openssl req -config openssl.cnf -key private/root.key.pem -new -x509 -days 7300 -sha256 -extensions v3_ca -out certs/root.cert.pem
+
+openssl x509 -noout -text -in certs/root.cert.pem
+
+
+openssl req -config ca1/openssl.cnf -new -sha256 -key ca1/private/ca1.key.pem -out ca1/csr/ca1.csr.pem
+
+openssl req -text -noout -verify -in ca1/csr/ca1.csr.pem
+
+
+openssl ca -config openssl.cnf -extensions v3_intermediate_ca -days 3650 -notext -md sha256 -in ca1/csr/ca1.csr.pem -out ca1/certs/ca1.cert.pem
+
+openssl x509 -noout -text -in ca1/certs/ca1.cert.pem
+
+openssl verify -CAfile certs/root.cert.pem ca1/certs/ca1.cert.pem
+
+cat ca1/certs/ca1.cert.pem certs/root.cert.pem > ca1/certs/ca1.cert-chain.pem
+
+chmod 444 ca1/certs/ca.cert-chain.pem
+
+
+
+task11
+
+openssl genrsa -out ca1/private/ca1server.key.pem 2048
+openssl req -config ca1/openssl.cnf -new -key ca1/private/ca1server.key.pem -out ca1/csr/ca1server.csr.pem
+openssl req -noout -text -in ca1/csr/ca1server.csr.pem
+openssl ca -config ca1/openssl.cnf -extensions server_cert -days 3650 -notext -in ca1/csr/ca1server.csr.pem -out ca1/certs/ca1server.cert.pem
+openssl x509 -noout -text -in ca1/certs/ca1server.cert.pem
+openssl verify -CAfile ca1/certs/ca1.cert-chain.pem ca1/certs/ca1server.cert.pem
+
+cp /home/student/mdhn18_ca/ca1/private/ca1server.key.pem /etc/ssl/private
+cp /home/student/mdhn18_ca/ca1/certs/ca1server.cert.pem /etc/ssl/certs
+cp /home/student/mdhn18_ca/ca1/certs/ca1.cert-chain.pem /etc/apache2
+sudo gedit /etc/apache2/sites-enabled/default-ssl.conf
+sudo service apache2 restart
+
+task13
+openssl ca -config ca1/openssl.cnf -gencrl -out ca1/crl/ca1.crl.pem
+
+openssl crl -in ca1/crl/ca1.crl.pem -noout -text
+
+task14
+
+openssl genrsa -out ca1/private/dragos.ilie@bth.se.key.pem 2048
+openssl req -config ca1/openssl.cnf -new -key ca1/private/dragos.ilie@bth.se.key.pem -out ca1/csr/dragos.ilie@bth.se.csr.pem
+openssl req -noout -text -in ca1/csr/dragos.ilie@bth.se.csr.pem
+openssl ca -config ca1/openssl.cnf -extensions usr_cert -days 3650 -notext -in ca1/csr/dragos.ilie@bth.se.csr.pem -out ca1/certs/dragos.ilie@bth.se.cert.pem
+openssl x509 -noout -text -in ca1/certs/dragos.ilie@bth.se.cert.pem
+openssl verify -CAfile ca1/certs/ca1.cert-chain.pem ca1/certs/dragos.ilie@bth.se.cert.pem
+
+
+openssl ca -config ca1/openssl.cnf -revoke ca1/certs/dragos.ilie@bth.se.cert.pem
+cat ca1/index.txt
+openssl ca -config ca1/openssl.cnf -gencrl -out ca1/crl/ca1.crl.pem
+openssl crl -in ca1/crl/ca1.crl.pem -noout -text
+
+
+
+
+
+
+15.........................
+
+Both SA and SB:
+sudo apt-get install strongswan
+
+sudo gedit /etc/ipsec.conf
+sudo gedit /etc/ipsec.secrets
+
+SA:
+conn serverA-to-serverB
+	auto=route
+	authby=psk
+	type=transport
+	keyexchange=ikev2
+	left=192.168.70.5
+	right=192.168.70.6
+
+192.168.70.5 192.168.70.6 : PSK "student"
+
+
+SB:
+conn serverB-to-serverA
+auto=route
+authby=psk
+type=transport
+keyexchange=ikev2
+left=192.168.70.6
+right=192.168.70.5
+
+192.168.70.6 192.168.70.5 : PSK "student"
+
+
+
+both server:
+sudo ipsec restart
+
+sudo ipsec up ser....
+sudo ipsec up ser...
+
+
+
+
+16.......................
+
+from both servers:
+sudo ipsec statusall
+
+
+SA:
+sudo ip xfrm state
+
+
+
+
+------------------------------------------------------
+task 18
+------------------------------------------------------
+Create an RSA private key for the server "A"
+openssl genrsa -out ca1/private/192.168.70.5.key.pem 2048
+
+
+Generate a CSR using the RSA private key from the previous step
+openssl req -config ca1/openssl.cnf -new -key ca1/private/192.168.70.5.key.pem -out ca1/csr/192.168.70.5.csr.pem
+
+
+Content of the CSR
+openssl req -noout -text -in ca1/csr/192.168.70.5.csr.pem
+
+
+Use CA1's private key to sign the CSR and create a certificate for the server
+openssl ca -config ca1/openssl.cnf -extensions server_cert -days 3650 -notext -in ca1/csr/192.168.70.5.csr.pem -out ca1/certs/192.168.70.5.cert.pem
+
+
+Content of the signed certificate
+openssl x509 -noout -text -in ca1/certs/192.168.70.5.cert.pem
+
+
+Verify the server certificate against certificate chain
+openssl verify -CAfile ca1/certs/ca1.cert-chain.pem ca1/certs/192.168.70.5.cert.pem
+
+
+
+
+
+Create an RSA private key for the server "B" but will be created in Server A
+openssl genrsa -out ca1/private/192.168.70.6.key.pem 2048
+
+
+Generate a CSR using the RSA private key from the previous step
+openssl req -config ca1/openssl.cnf -new -key ca1/private/192.168.70.6.key.pem -out ca1/csr/192.168.70.6.csr.pem
+
+
+Content of the CSR
+openssl req -noout -text -in ca1/csr/192.168.70.6.csr.pem
+
+
+Use CA1's private key to sign the CSR and create a certificate for the server
+openssl ca -config ca1/openssl.cnf -extensions server_cert -days 3650 -notext -in ca1/csr/192.168.70.6.csr.pem -out ca1/certs/192.168.70.6.cert.pem
+
+
+Content of the signed certificate
+openssl x509 -noout -text -in ca1/certs/192.168.70.6.cert.pem
+
+
+Verify the server certificate against certificate chain
+openssl verify -CAfile ca1/certs/ca1.cert-chain.pem ca1/certs/192.168.70.6.cert.pem
+
+
+
+student@serverA:~$ sudo su
+[sudo] password for student: 
+root@serverA:/home/student# cd /etc/ipsec.d/private/
+root@serverA:/etc/ipsec.d/private# ls
+192.168.70.5.key.pem
+root@serverA:/etc/ipsec.d/private# cd /etc/ipsec.d/certs/
+root@serverA:/etc/ipsec.d/certs# ls
+192.168.70.5.cert.pem
+root@serverA:/etc/ipsec.d/certs# cd /etc/ipsec.d/cacerts/
+root@serverA:/etc/ipsec.d/cacerts# ls
+ca1.cert.pem  root.cert.pem
+root@serverA:/etc/ipsec.d/cacerts#
+
+
+
+
+C = SE, ST = Blekinge, L = Karlskrona, O = ET2540, CN = 192.168.70.5
+C = SE, ST = Blekinge, L = Karlskrona, O = ET2540, CN = 192.168.70.6
+
+
+
+sudo gedit /etc/ipsec.conf	
+sudo gedit /etc/ipsec.secrets
+
+
+For server A:
+
+conn %default
+	ikelifetime=60m
+	keylife=20m
+	rekeymargin=3m
+	keyingtries=1
+	mobike=no
+	keyexchange=ikev2
+
+
+conn serverA-to-serverB-transport
+	left=192.168.70.5
+	leftcert=192.168.70.5.cert.pem
+	leftid="C = SE, ST = Blekinge, L = Karlskrona, O = ET2540, CN = 192.168.70.5"
+	leftfirewall=yes
+	right=192.168.70.6
+	rightid="C = SE, ST = Blekinge, L = Karlskrona, O = ET2540, CN = 192.168.70.6"
+	type=transport
+	auto=route
+	authby=rsa
+	
+
+For Server B:
+	
+conn %default
+	ikelifetime=60m
+	keylife=20m
+	rekeymargin=3m
+	keyingtries=1
+	mobike=no
+	keyexchange=ikev2
+
+
+conn serverB-to-serverA-transport
+	left=192.168.70.6
+	leftcert=192.168.70.6.cert.pem
+	leftid="C = SE, ST = Blekinge, L = Karlskrona, O = ET2540, CN = 192.168.70.6"
+	leftfirewall=yes
+	right=192.168.70.5
+	rightid="C = SE, ST = Blekinge, L = Karlskrona, O = ET2540, CN = 192.168.70.5"
+	type=transport
+	auto=route
+	authby=rsa
+
+
+
+Configuration from ipsec.secrets for Server A
+
+: RSA 192.168.70.5.key.pem
+
+
+Configuration from ipsec.secrets for Server B
+
+: RSA 192.168.70.6.key.pem
+
+
+
+sudo ipsec rereadcacerts
+sudo ipsec listcacerts
+
+sudo ipsec restart
+
+sudo ipsec up serverA-to-serverB-transport
+sudo ipsec up serverB-to-serverA-transport
+
+
+
+
+sudo ipsec statusall
+
+sudo ip xfrm state
+
+sudo ip xfrm policy
+
+
+
+###################################
+Task: 19
+###################################
+
+For ServerA
+
+
+conn %default
+	ikelifetime=60m
+	keylife=20m
+	rekeymargin=3m
+	keyingtries=1
+	mobike=no
+	keyexchange=ikev2
+
+
+conn serverA-to-serverB-tunnel
+	left=192.168.70.5
+	leftcert=192.168.70.5.cert.pem
+	leftid="C = SE, ST = Blekinge, L = Karlskrona, O = ET2540, CN = 192.168.70.5"
+	leftfirewall=yes
+	right=192.168.70.6
+	rightid="C = SE, ST = Blekinge, L = Karlskrona, O = ET2540, CN = 192.168.70.6"
+	type=tunnel
+	auto=route
+	authby=rsa
+
+Configuration from ipsec.secrets for Server A
+: RSA 192.168.70.5.key.pem
+
+For serverB
+
+conn %default
+	ikelifetime=60m
+	keylife=20m
+	rekeymargin=3m
+	keyingtries=1
+	mobike=no
+	keyexchange=ikev2
+
+
+conn serverB-to-serverA-tunnel
+	left=192.168.70.6
+	leftcert=192.168.70.6.cert.pem
+	leftid="C = SE, ST = Blekinge, L = Karlskrona, O = ET2540, CN = 192.168.70.6"
+	leftfirewall=yes
+	right=192.168.70.5
+	rightid="C = SE, ST = Blekinge, L = Karlskrona, O = ET2540, CN = 192.168.70.5"
+	type=tunnel
+	auto=route
+	authby=rsa
+
+
+Configuration from ipsec.secrets for Server B
+: RSA 192.168.70.6.key.pem
+
+
+************************************************
+For serverA ************************************************************* For serverB
+
+sudo ipsec up serverA-to-serverB-tunnel                  sudo ipsec up serverB-to-serverA-tunnel
+
+sudo ipsec statusall                                     sudo ipsec statusall
+
+sudo ip xfrm state                                       sudo ip xfrm state
+
+sudo ip xfrm policy                                      sudo ip xfrm policy
+
+ping 192.168.70.6        enp0s8                          ping 192.168.70.5
+
+ping 192.168.80.100	 enp0s9				 ping 192.168.60.100
+
+
+########################################################
+20
+########################################################
+                            etc/network/interfaces
+For serverA  ****************************************************************** For serverB
+
+$IPT -t filter -A FORWARD -i $NIF -j ACCEPT
+$IPT -t filter -A FORWARD -i $NIF -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+$IPT -t nat -A POSTROUTING -j SNAT -o $NIF --to $NIP
+
+	clientA							clientB
+sudo cat /etc/network/interfaces
+
+gateway 192.168.60.100					gateway 192.168.80.100
+
+
+
+ping 192.168.80.111        enp0s3                       ping 192.168.60.111
+
+sudo ipsec statusall                                    sudo ipsec statusall 
+
+
+
+sudo sysctl -w net.ipv4.ip_forward=1
+sudo sysctl -p
+sudo ipsec restart
+sudo ipsec statusall
+ping 192.168.80.111 clientA
+ping 192.168.60.111 clientB
+############
+Task 21:::
+##########
+DROP
+#task 20
+#$IPT -A INPUT -s 192.168.70.5 -d 192.168.70.6 -j ACCEPT
+#$IPT -A OUTPUT -s 192.168.70.6 -d 192.168.70.5 -j ACCEPT
+#$IPT -t filter -A FORWARD -i $HIF -j ACCEPT
+#$IPT -t filter -A FORWARD -i $NIF -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+#task 21
+$IPT -A FORWARD -s 192.168.80.0/24 -d 192.168.60.0/24 -j ACCEPT
+$IPT -A FORWARD -s 192.168.60.0/24 -d 192.168.80.0/24 -j ACCEPT
+$IPT -t filter -A FORWARD -i $HIF -j ACCEPT
+$IPT -t filter -A FORWARD -i $NIF -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+$IPT -A INPUT -s 192.168.60.111 -d 192.168.70.5 -j ACCEPT
+$IPT -A OUTPUT -s 192.168.70.5 -d 192.168.60.111 -j ACCEPT
+$IPT -A INPUT -s 192.168.70.6 -d 192.168.70.5 -j ACCEPT
+$IPT -A OUTPUT -s 192.168.70.5 -d 192.168.70.6 -j ACCEPT
+
+$IPT -t nat -A POSTROUTING -j SNAT -o $NIF --to $NIP
+
+
+server B
+#task 20
+#$IPT -A INPUT -s 192.168.70.6 -d 192.168.70.5 -j ACCEPT
+#$IPT -A OUTPUT -s 192.168.70.5 -d 192.168.70.6 -j ACCEPT
+#$IPT -t filter -A FORWARD -i $HIF -j ACCEPT
+#$IPT -t filter -A FORWARD -i $NIF -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+#task 21
+$IPT -A FORWARD -s 192.168.80.0/24 -d 192.168.60.0/24 -j ACCEPT
+$IPT -A FORWARD -s 192.168.60.0/24 -d 192.168.80.0/24 -j ACCEPT
+$IPT -t filter -A FORWARD -i $HIF -j ACCEPT
+$IPT -t filter -A FORWARD -i $NIF -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+$IPT -A INPUT -s 192.168.80.111 -d 192.168.70.6 -j ACCEPT
+$IPT -A OUTPUT -s 192.168.70.6 -d 192.168.80.111 -j ACCEPT
+$IPT -A INPUT -s 192.168.70.5 -d 192.168.70.6 -j ACCEPT
+$IPT -A OUTPUT -s 192.168.70.6 -d 192.168.70.5 -j ACCEPT
+
+$IPT -t nat -A POSTROUTING -j SNAT -o $NIF --to $NIP
+
+
